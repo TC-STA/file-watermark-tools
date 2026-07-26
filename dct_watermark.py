@@ -20,7 +20,7 @@ def _get_pairs():
 EOF = bytes(8)
 SEED = 12345  # 固定种子，编解码一致
 
-def encode(ipath, opath, secret, strength=150, repeat=16):
+def encode(ipath, opath, secret, strength=80, repeat=16):
     data = secret.encode('utf-8') + EOF
     bits = ''.join(format(b,'08b') for b in data)
     pairs = _get_pairs()
@@ -59,7 +59,7 @@ def encode(ipath, opath, secret, strength=150, repeat=16):
     Image.fromarray(out,'YCbCr').convert('RGB').save(opath,'PNG')
     print(f'[OK] {opath}: {len(secret)}chars s={strength} r={repeat}')
 
-def decode(ipath, strength=150, repeat=16):
+def decode(ipath, strength=80, repeat=16):
     img = Image.open(ipath).convert('YCbCr')
     y = np.array(img, dtype=np.float64)[:,:,0]
     h, w = y.shape
@@ -129,10 +129,10 @@ if __name__ == '__main__':
                 img.putpixel((x,y),(v,v,v))
         orig = os.path.join(d,'dct_orig.png'); img.save(orig,'PNG')
         print(f'    OK')
-        print('\n[2/3] 嵌入水印 (strength=150, repeat=16)...')
+        print('\n[2/3] 嵌入水印 (strength=80, repeat=16)...')
         secret = '散布测试!'
         stego = os.path.join(d,'dct_wm.png')
-        encode(orig, stego, secret, strength=150, repeat=16)
+        encode(orig, stego, secret, strength=80, repeat=16)
         print('\n[3/3] 抗压缩测试:')
         r = decode(stego); print(f'  PNG: {"OK" if r==secret else "FAIL"}')
         for q in [85,50,1]:

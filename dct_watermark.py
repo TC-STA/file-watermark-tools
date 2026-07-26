@@ -14,7 +14,7 @@ _idct = lambda b: _IDCT @ b @ _IDCT.T
 EOF = bytes(8)
 # 只保留最低频的4对系数 —— 抗JPEG量化最强
 PAIRS = [(0,1),(1,0),(0,2),(2,0),(1,1),(2,2),(0,3),(3,0)]
-QQ_STRENGTH = 600
+QQ_STRENGTH = 180
 QQ_REPEAT = 16
 
 def _get_pairs():
@@ -123,7 +123,7 @@ if __name__ == '__main__':
         print('\n[2/3] Embedding...')
         secret = 'QQ wm OK!'
         stego = os.path.join(d,'dct_wm.png')
-        encode(orig, stego, secret, strength=600, repeat=QQ_REPEAT)
+        encode(orig, stego, secret, strength=QQ_STRENGTH, repeat=QQ_REPEAT)
         print('\n[3/3] QQ模拟压缩测试...')
         r = decode(stego); print(f'PNG match: {r == secret}')
         for q in [95,85,75,65,55,45,35,25,15,5,1]:

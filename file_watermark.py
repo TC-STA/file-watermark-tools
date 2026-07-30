@@ -80,6 +80,7 @@ def _extract_png(path: str) -> Optional[bytes]:
     with open(path, 'rb') as f: raw = f.read()
     # 直接搜索tEXt块（更鲁棒）
     pos = 8
+    last = None
     while pos + 12 <= len(raw):
         length = struct.unpack('>I', raw[pos:pos+4])[0]
         if pos + 12 + length > len(raw): break
@@ -87,9 +88,9 @@ def _extract_png(path: str) -> Optional[bytes]:
         if tag == b'tEXt' and length >= 10:
             cd = raw[pos+8:pos+8+length]
             if cd.startswith(b'watermark\x00'):
-                return cd[10:]
+                last = cd[10:]
         pos += 12 + length
-    return None
+    return last
 
 # ----- JPEG -----
 def _embed_jpeg(path: str, wm_data: bytes) -> bool:

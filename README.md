@@ -12,21 +12,24 @@
 | **`ss_watermark.py`** 🏆 | 扩频水印（全图DCT+PN序列） | ★★★★★ | ✅ | ~100汉字 |
 | **`exif_watermark.py`** | EXIF元数据水印 | ★★★★★ | ⚠️ DateTime | 8~500字节 |
 | **`dct_watermark.py`** | DCT系数对（随机散布） | ★★★☆☆ | ✅ | ~300汉字 |
-| `file_watermark.py` | 文件级COM注释 | ★★★★★ | ❌ | 不限 |
+| **`file_watermark.py`** | 文件级通用水印 | ★★★★★ | ❌ | 不限 |
 
 ---
 
 ## 🚀 快速开始
 
 ```bash
-# 安装依赖
-pip3 install --break-system-packages numpy pillow piexif
+# 按需安装依赖
+pip3 install --break-system-packages numpy      # DCT/扩频水印需要
+pip3 install --break-system-packages pillow     # 图片处理
+pip3 install --break-system-packages piexif     # EXIF水印需要
+pip3 install --break-system-packages cryptography  # 文件水印加密需要
 ```
 
 Android（Termux）：
 ```bash
 apt install python3-numpy python3-pil
-pip3 install --break-system-packages piexif
+pip3 install --break-system-packages piexif cryptography
 ```
 
 ---
@@ -52,7 +55,6 @@ python3 ss_watermark.py decode watermarked.jpg
 
 # 自定义参数
 python3 ss_watermark.py encode input.png output.png "秘密消息" 12 20
-#                                            强度↑ 每块系数↑
 
 # 运行演示
 python3 ss_watermark.py demo
@@ -135,25 +137,95 @@ python3 dct_watermark.py demo
 
 ## 📄 方案四：文件级通用水印
 
-**`file_watermark.py`** — 在文件末尾追加数据，不修改原始内容。
+**`file_watermark.py`** — 在文件中嵌入/提取水印，支持**任意格式文件**，每个格式使用最合适的嵌入方式，不影响文件功能。
 
-```bash
-python3 file_watermark.py embed document.pdf output.pdf "版权信息"
-python3 file_watermark.py extract output.pdf
+### 原理
+
+水印数据包格式（通用尾部方案）：
 ```
-支持：PNG/JPEG/ZIP(APK/DOCX)/PDF/PE(EXE)/MP4/通用尾部
+[MAGIC(4B FWMT)][VERSION(1B)][FLAGS(1B)][PAYLOAD_LEN(4B)][SALT(16B)][NONCE(12B)][CIPHERTEXT][EOF_MARK(8B)]
+```
+
+各格式嵌入方式：
+
+| 格式 | 嵌入位置 | 说明 |
+|:-----|:---------|:-----|
+| **PNG** | tEXt辅助块 | 标准PNG元数据块，不破坏图像数据 |
+| **JPEG** | COM注释标记 | 在SOS标记前插入，解码器自动忽略 |
+| **ZIP/APK/DOCX/XLSX** | EOCD注释区域 | ZIP格式标准注释字段 |
+| **PDF** | %%EOF后追加 | PDF阅读器忽略尾部追加内容 |
+| **EXE/DLL** | 文件尾部 + 校验和置零 | PE格式安全区 |
+| **MP4/MOV** | free box容器 | MP4标准容器扩展 |
+| **MKV/RAR/7z/其他** | 尾部魔数标记 | 通用方案，FWMT+长度+EOF |
+
+### 使用
+```bash
+# 嵌入水印（自动检测格式）
+python3 file_watermark.py embed photo.png "版权信息2026"
+python3 file_watermark.py embed report.pdf "机密文档 v1.2"
+python3 file_watermark.py embed app.apk "内部版本 2026-07"
+
+# 嵌入 + 加密
+python3 file_watermark.py embed secret.zip "最高机密" 我的密码
+
+# 嵌入 + 不创建备份（默认会生成 .bak）
+python3 file_watermark.py embed photo.jpg "水印" --nobackup
+
+# 提取水印
+python3 file_watermark.py extract photo.png
+python3 file_watermark.py extract secret.zip 我的密码
+
+# 查看支持的格式
+python3 file_watermark.py types
+
+# 一键演示（自动测试所有格式）
+python3 file_watermark.py demo
+```
+
+### 批量处理
+```bash
+# 批量嵌入（通配符）
+python3 file_watermark.py batch "*.jpg" "批量水印"
+python3 file_watermark.py batch "*.pdf" "内部机密" --recursive
+
+# 批量提取
+python3 file_watermark.py bextract "*.png"
+python3 file_watermark.py bextract "*.pdf" --recursive
+```
+
+### 功能特性
+| 功能 | 说明 |
+|:-----|:-----|
+| **全格式支持** | PNG/JPEG/ZIP(APK/DOCX)/PDF/PE(EXE)/MP4/MKV/通用 |
+| **AES-256-GCM加密** | PBKDF2密钥派生，认证加密防篡改 |
+| **自动备份** | 嵌入前自动创建 `.bak` 备份 |
+| **批量处理** | 支持通配符和递归目录 |
+| **格式自识别** | 自动检测文件格式选择最佳嵌入方式 |
+| **零影响** | 嵌入后文件功能完全正常 |
+
+### 依赖
+加密功能需要额外安装：
+```bash
+pip3 install --break-system-packages cryptography
+```
+纯文本嵌入不需要此依赖。
+
+### 注意事项
+- ⚠️ **不抗QQ/微信压缩**：社交软件传输会重编码文件，水印数据会被剥离
+- ✅ 适合：文件存档、内部流转、同设备/局域网/云盘传输
+- ✅ 加密模式下**忘记密码则无法恢复**
 
 ---
 
 ## 📊 方案选择指南
 
-| 场景 | 推荐工具 |
-|:-----|:---------|
-| **QQ/微信传图·完全隐形** 🥇 | `ss_watermark.py` |
-| QQ传图·次选 | `dct_watermark.py` |
-| QQ传图·短标识 | `exif_watermark.py datetime` |
-| 同设备无损·大容量 | `exif_watermark.py comment` |
-| 任意格式文件 | `file_watermark.py` |
+| 场景 | 推荐工具 | 理由 |
+|:-----|:---------|:-----|
+| **QQ/微信传图·完全隐形** 🥇 | `ss_watermark.py` | 扩频，无块效应，像素变化±1 |
+| QQ传图·次选 | `dct_watermark.py` | DCT系数对，抗压缩稳健 |
+| QQ传图·短标识 | `exif_watermark.py datetime` | 仅8字节，但不改像素 |
+| 同设备·大容量无损 | `exif_watermark.py comment` | 500字节，完全不改图 |
+| 任意文件·无压缩场景 | `file_watermark.py` | 全格式支持，加密可选 |
 
 ---
 
